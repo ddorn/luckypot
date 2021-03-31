@@ -2,15 +2,18 @@ import pygame
 
 from settings import settings
 
+__all__ = ["Object"]
+
 
 class Object:
     Z = 0
 
-    def __init__(self, pos, size, vel=(0, 0)):
+    def __init__(self, pos, size=(1, 1), vel=(0, 0)):
         self.pos = pygame.Vector2(pos)
         self.size = pygame.Vector2(size)
         self.vel = pygame.Vector2(vel)
         self.alive = True
+        self.scripts = set()
 
     @property
     def center(self):
@@ -29,9 +32,17 @@ class Object:
 
         self.pos += self.vel
 
-    def draw(self, gfx: 'GFX'):
+        to_remove = set()
+        for script in self.scripts:
+            try:
+                next(script)
+            except StopIteration:
+                to_remove.add(script)
+        self.scripts.difference_update(to_remove)
+
+    def draw(self, gfx: "GFX"):
         if settings.debug:
-            gfx.rect(*self.pos, *self.size, 'red', 1)
+            gfx.rect(*self.pos, *self.size, "red", 1)
 
     def on_death(self, state):
         """Overwrite this to have a logic when the object dies.
@@ -50,4 +61,3 @@ class Object:
             old (pygame.Vector2): previous size of the window
             new (pygame.Vector2): actual size of the window
         """
-

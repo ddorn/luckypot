@@ -4,9 +4,11 @@ from typing import Type
 import pygame
 
 from gfx import GFX
-from screen import BlackBordersScreen, ExtendFieldOfViewScreen, Screen
+from screen import ExtendFieldOfViewScreen, Screen
 from settings import settings
 from state_machine import State, StateMachine
+
+__all__ = ["App"]
 
 
 class App(StateMachine):
@@ -22,7 +24,7 @@ class App(StateMachine):
 
     FPS = 60
     NAME = "Pygame window"
-    MAIN_APP: 'App' = None
+    MAIN_APP: "App" = None
 
     def __init__(self, initial_state: Type[State], resizing: Screen):
         App.MAIN_APP = self
@@ -66,25 +68,31 @@ class App(StateMachine):
                 new = self.screen.draw_surface.get_size()
                 if old != new:
                     self.state.resize(old, new)
-            elif event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+            elif event.type in (
+                pygame.MOUSEMOTION,
+                pygame.MOUSEBUTTONDOWN,
+                pygame.MOUSEBUTTONUP,
+            ):
                 self.screen.fixup_mouse_input(event)
 
         self.state.handle_events(events)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+
     class MyState(State):
-        BG_COLOR = '#60a450'
+        BG_COLOR = "#60a450"
 
         def draw(self, gfx: GFX):
             super().draw(gfx)
 
-            gfx.rect(0, 0, 1, 1, 'blue', 1)
+            gfx.rect(0, 0, 1, 1, "blue", 1)
 
             # center = display.get_rect().center
             # r = pygame.Rect(0, 0, *App.MAIN_APP.DESIGN_SIZE)
             # r.center = center
             # pygame.draw.rect(display, 'red', r, 2)
+
     #
 
     pygame.init()

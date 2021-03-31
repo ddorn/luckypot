@@ -6,11 +6,13 @@ from pygame.locals import *
 
 from pygame_input import Button, Inputs, QuitEvent
 
-T = TypeVar('T')
+T = TypeVar("T")
+
+__all__ = ["State", "StateMachine"]
 
 
 class State:
-    BG_COLOR = 'black'
+    BG_COLOR = "black"
     BG_MUSIC = None
 
     def __init__(self):
@@ -22,8 +24,8 @@ class State:
         self.shake = 0
 
         self.inputs = Inputs()
-        self.inputs['quit'] = Button(QuitEvent(), K_ESCAPE, K_q)
-        self.inputs['quit'].on_press(lambda e: setattr(self, 'next_state', None))
+        self.inputs["quit"] = Button(QuitEvent(), K_ESCAPE, K_q)
+        self.inputs["quit"].on_press(lambda e: setattr(self, "next_state", None))
 
     # Life phase of state
 
@@ -62,7 +64,7 @@ class State:
                 object.on_death(self)
         self.objects.difference_update(to_remove)
 
-    def draw(self, gfx: 'GFX'):
+    def draw(self, gfx: "GFX"):
         if self.BG_COLOR:
             gfx.fill(self.BG_COLOR)
 
