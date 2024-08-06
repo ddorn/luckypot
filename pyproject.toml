@@ -7,7 +7,7 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pygame = "^2.0.1"
+pygame-ce = "^2.3.0"
 
 [tool.poetry.dev-dependencies]
 
