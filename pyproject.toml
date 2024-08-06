@@ -9,7 +9,7 @@ packages = [
 ]
 
 include = [
-    "assets/",
+    "luckypot/examples/assets/*",
 ]
 
 

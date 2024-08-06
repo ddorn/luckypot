@@ -7,23 +7,31 @@ from pathlib import Path
 import pygame
 
 
-ASSETS_DIR = Path(__file__).parent.parent / "assets"
+ASSETS_DIR: Path | None = None
+
+
+def set_assets_dir(path: Path):
+    global ASSETS_DIR
+    ASSETS_DIR = path
 
 
 @lru_cache()
 def image(name: str):
+    assert ASSETS_DIR, "You need to call assets.set_assets_dir() before using images."
     file = ASSETS_DIR / "images" / (name + ".png")
     return pygame.image.load(file)
 
 
 @lru_cache()
 def font(name: str, size: int):
+    assert ASSETS_DIR, "You need to call assets.set_assets_dir() before using fonts."
     file = ASSETS_DIR / "fonts" / (name + ".ttf")
     return pygame.font.Font(file, size)
 
 
 class Animation:
     def __init__(self, name: str, flip_x=False):
+        assert ASSETS_DIR, "You need to call assets.set_assets_dir() before using animations."
         self.name, self.anim = name.split()
         data = ASSETS_DIR / "animations" / (self.name + ".json")
         data = json.loads(data.read_text())

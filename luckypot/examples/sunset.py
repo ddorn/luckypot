@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 #sys.path.append('engine')
 
@@ -10,8 +11,9 @@ from typing import Dict, List
 import pygame
 import pygame.gfxdraw
 
-import assets
 from luckypot import *
+
+assets.set_assets_dir(Path(__file__).parent / "assets")
 
 R = 40
 W, H = SIZE = (16 * R, 9 * R)
