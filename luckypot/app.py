@@ -61,6 +61,8 @@ class App(StateMachine):
         start = time()
         while self.state is not None:  # Equivalent to self.running
             self.events()
+            for state in self.stack[:-1]:
+                state.paused_logic()
             self.state.logic()
             self.state.draw(self.gfx)
             self.window.flip()

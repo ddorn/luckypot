@@ -115,6 +115,9 @@ class State(Scriptable):
         """
         yield
 
+    def paused_logic(self):
+        """Logic that happens when the state is not the current state."""
+
     def logic(self):
         """All the logic of the state happens here.
 
