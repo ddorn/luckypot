@@ -268,11 +268,11 @@ class State(Scriptable):
         return callback
 
 
-class StateMachine:
+class StateMachine[S: State]:
 
-    def __init__(self, initial_state: Type[State]):
-        self._state: Union[State, None] = None
-        self.stack: List[State] = []
+    def __init__(self, initial_state: Type[S]):
+        self._state: S | None = None
+        self.stack: List[S] = []
         self.state = (StateOperations.PUSH, initial_state())
 
     @property
@@ -281,19 +281,20 @@ class StateMachine:
         return len(self.stack) > 0
 
     @property
-    def state(self) -> Union[State, None]:
+    def state(self) -> S | None:
         """Current state. Setting needs to be done with a tuple of (StateOperations, State)."""
         if self.stack:
             return self.stack[-1]
         return None
 
     @state.setter
-    def state(self, value: Tuple[StateOperations, Optional[State]]):
+    def state(self, value: Tuple[StateOperations, S | None]):
         op, new = value
 
         if op == StateOperations.NOP:
             pass
         elif op == StateOperations.POP:
+            assert new is None
             if self.stack:
                 prev = self.stack.pop()
                 prev.on_exit()
@@ -301,12 +302,14 @@ class StateMachine:
             if self.stack:
                 self.stack[-1].on_resume()
         elif op == StateOperations.REPLACE:
+            assert new is not None
             if self.stack:
                 prev = self.stack.pop()
                 prev.on_exit()
             self.stack.append(new)
             new.on_resume()
         elif op == StateOperations.PUSH:
+            assert new is not None
             if self.stack:
                 self.stack[-1].on_exit()
             self.stack.append(new)
