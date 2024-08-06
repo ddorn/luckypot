@@ -279,7 +279,7 @@ class StateMachine:
 
     @property
     def state(self) -> Union[State, None]:
-        """Current state. Setting to None terminates the last state."""
+        """Current state. Setting needs to be done with a tuple of (StateOperations, State)."""
         if self.stack:
             return self.stack[-1]
         return None

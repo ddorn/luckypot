@@ -1,7 +1,8 @@
+import sys
+import typing
 from pathlib import Path
 
 import pygame
-import typing
 
 GAME_NAME = "XXX"
 SIZE = 1600, 1200
@@ -9,6 +10,8 @@ W, H = SIZE
 USE_DELTA_TIME = False
 
 SCREEN = pygame.Rect(0, 0, W, H)
+
+ENTRY_POINT_DIR = Path(sys.argv[0]).parent
 
 # Main colors
 YELLOW = (255, 224, 145)
@@ -21,20 +24,11 @@ SMALL_FONT = "pixelmillennium"
 BIG_FONT = "Borel-Regular"
 SMALL_TEXT_SIZE = 16
 BIG_TEXT_SIZE = 32
-ANTI_ALIAS = {
+ANTIALIASING_ALIAS = {
     SMALL_FONT: False,
     BIG_FONT: True,
 }
 
-ASSETS_DIR = Path(__file__).parent.parent / "assets"
-IMAGES = ASSETS_DIR / "images"
-ANIMATIONS = ASSETS_DIR / "animations"
-FONTS = ASSETS_DIR / "fonts"
-MUSIC = ASSETS_DIR / "music"
-SFX = ASSETS_DIR / "sfx"
-
-print("Assets:", ASSETS_DIR)
-print("Images:", IMAGES)
 
 UPWARDS = -90  # degrees
 DOWNWARDS = 90  # degrees

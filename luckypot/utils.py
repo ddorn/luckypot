@@ -6,6 +6,7 @@ import functools
 import math
 import random
 import typing
+from functools import lru_cache
 
 import pygame
 
@@ -18,14 +19,14 @@ def vec2int(vec):
     return int(vec[0]), int(vec[1])
 
 
-@functools.lru_cache()
+@lru_cache()
 def load_img(path, alpha=False):
     if alpha:
         return pygame.image.load(path).convert_alpha()
-    return pygame.image.load(path).convert()
+    return pygame.image.load(path)
 
 
-@functools.lru_cache()
+@lru_cache()
 def get_tile(tilesheet: pygame.Surface, size, x, y, w=1, h=1):
     return tilesheet.subsurface(x * size, y * size, w * size, h * size)
 
@@ -548,6 +549,7 @@ __all__ = [
 ]
 
 # This just helps me to remember to add new utilities to __all__
+IGNORE = [lru_cache]
 for name, f in list(globals().items()):
-    if name not in __all__ and callable(f):
+    if name not in __all__ and callable(f) and f not in IGNORE:
         raise RuntimeError(f"{name} is not exported, did you forget to add it to __all__?")

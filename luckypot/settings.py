@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-__all__ = ["Settings", "settings"]
+from .constants import ENTRY_POINT_DIR
 
-from .constants import ASSETS_DIR
+__all__ = ["Settings", "settings"]
 
 
 class Settings:
@@ -14,7 +14,7 @@ class Settings:
     """
 
     _instance = None
-    PATH = ASSETS_DIR / "settings.json"
+    PATH = ENTRY_POINT_DIR / "settings.json"
 
     def __new__(cls):
         if cls._instance:
