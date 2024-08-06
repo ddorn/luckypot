@@ -408,5 +408,9 @@ class SunsetApp(App):
     INITIAL_SIZE = SIZE
     INITIAL_STATE = Sunset
 
-if __name__ == "__main__":
+
+def main():
     SunsetApp().run()
+
+if __name__ == "__main__":
+    main()
