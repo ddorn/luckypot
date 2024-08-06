@@ -1,8 +1,9 @@
 import json
 from pathlib import Path
 
+__all__ = ["Settings", "settings"]
 
-__all__ = ["Settings", 'settings']
+from .constants import ASSETS_DIR
 
 
 class Settings:
@@ -13,7 +14,7 @@ class Settings:
     """
 
     _instance = None
-    PATH = Path(__file__).parent / 'settings.json'
+    PATH = ASSETS_DIR / "settings.json"
 
     def __new__(cls):
         if cls._instance:
@@ -34,6 +35,10 @@ class Settings:
 
     def __init__(self):
         self.debug = False
+        self.highscores = []
+        self.name = "Cool kid"
+        self.last_score = None
+        self.mute = False
 
     def load(self):
         """(re)load the settings from the file. Called automatically on the first instance of Settings."""
@@ -49,6 +54,8 @@ class Settings:
     def reset(self):
         """Reset the settings."""
 
+        # There is nothing here as this method is swapped with __init__
+        # after the first instance. You don't like black magic ???
+
 
 settings = Settings()
-

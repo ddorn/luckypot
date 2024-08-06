@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 from math import cos, pi, sin
-from random import choice, gauss, randint, random, uniform
+from random import choice, gauss, randint, uniform
 from time import time
-from typing import Callable, Generic, Tuple, TypeVar, Union
+from typing import Callable, Generic, Optional, Tuple, TypeVar, Union, Self
 
 import pygame
-import pygame.gfxdraw as gfx
-from pygame import Vector2
+import pygame.gfxdraw
+from pygame import Vector2, Rect
 
-
+#
 __all__ = [
     "ParticleSystem",
     "ParticleFountain",
@@ -19,7 +21,12 @@ __all__ = [
     "LineParticle",
     "SquareParticle",
     "ShardParticle",
+    "TextParticle",
 ]
+
+from .assets import text
+from .utils import bounce, exp_impulse, random_in_rect, random_in_rect_and_avoid, rrange, clamp, from_polar
+from .gfx import GFX
 
 pygame.init()
 
@@ -37,42 +44,21 @@ SNOW = pygame.image.fromstring(
 )
 
 
-def clamp(x, mini, maxi):
-    if x < mini:
-        return mini
-    if x > maxi:
-        return maxi
-    return x
-
-
 def vec2int(vec):
     return (int(vec[0]), int(vec[1]))
 
 
-def polar(r, phi: DEGREES):
-    v = Vector2()
-    v.from_polar((r, phi))
-    return v
-
-
-def rrange(nb: float):
-    qte = int(nb)
-    proba = nb - qte
-    if random() < proba:
-        return range(qte + 1)
-    return range(qte)
-
-
 def rand2d(vec):
-    return (uniform(0, vec[0]), uniform(0, vec[1]))
+    return uniform(0, vec[0]), uniform(0, vec[1])
 
 
 class ParticleSystem(set):
-    fountains: "List[ParticleFountain]"
+    fountains: "list[ParticleFountain]"
 
     def __init__(self):
         super().__init__()
         self.fountains = []
+        self.use_gfx = True  # Change to False for slightly better performance
 
     def logic(self):
         """Update all the particle for the frame."""
@@ -88,16 +74,49 @@ class ParticleSystem(set):
 
         self.difference_update(dead)
 
-    def draw(self, surf: pygame.Surface):
+    def draw(self, gfx: GFX):
         """Draw all the particles"""
 
-        for particle in self:
-            particle.draw(surf)
+        if self.use_gfx:
+            for particle in self:
+                particle.draw(gfx)
+        else:
+            for particle in self:
+                particle.draw_no_gfx(gfx.surf)
+
+    def add_fire_particle(self, pos, angle):
+        self.add(
+            SquareParticle()
+            .builder()
+            .hsv(gauss(20, 20), gauss(100, 10))
+            .at(pos, gauss(angle, 10))
+            .velocity(gauss(1, 0.1))
+            .sized(uniform(1, 5))
+            .living(30)
+            .anim_fade()
+            .build()
+        )
+
+    def add_explosion(self, pos, intensity=100, qte: Optional[float] = None, color="white"):
+        if qte is None:
+            qte = intensity / 2
+
+        for i in rrange(qte):
+            self.add(
+                SquareParticle(color)
+                .builder()
+                .at(pos, uniform(0, 360))
+                .velocity(gauss(intensity / 30, intensity / 100))
+                .sized(2)
+                .living(intensity // 4)
+                .anim_fade()
+                .build()
+            )
 
 
 class ParticleFountain:
     def __init__(
-        self, particle_generator: Callable[[], "Particle"], frequency=1.0,
+            self, particle_generator: Callable[[], "Particle"], frequency=1.0,
     ):
         self.generator = particle_generator
         self.frequency = frequency
@@ -105,6 +124,41 @@ class ParticleFountain:
     def logic(self, system):
         for _ in rrange(self.frequency):
             system.add(self.generator())
+
+    @classmethod
+    def stars(cls, rect):
+        """Spawn stars particles in the rectangle."""
+        return cls(
+            lambda: SquareParticle("white")
+            .builder()
+            .at(random_in_rect(rect), 90)
+            .velocity(0.2)
+            .living(6 * 60)
+            .sized(uniform(1, 3))
+            .anim_blink()
+            .build(),
+            0.2,
+        )
+
+    @classmethod
+    def screen_confetti(cls, rect: Rect, n_sources: int = 10):
+        """Spawn confetti covering the screen from n_sources positions."""
+        positions = []
+        for _ in range(n_sources):
+            positions.append(
+                Vector2(random_in_rect_and_avoid(rect, positions, 80))
+            )
+
+        return cls(
+            lambda: CircleParticle()
+            .builder()
+            .hsv(angle := uniform(0, 360), 80, 80)
+            .at(choice(positions) + from_polar(40, angle), angle + 90)
+            .velocity(gauss(2, 0.2), )
+            .sized(gauss(5, 2))
+            # .acceleration(-0.005)
+            .living(400)
+            .build(), frequency=n_sources)
 
 
 class Particle:
@@ -116,6 +170,7 @@ class Particle:
         self.angle_vel = 0.0
         self.size = 10.0
         self.lifespan = 60
+        self.constant_force = Vector2()
 
         self.inner_rotation = 0
         self.inner_rotation_speed = 0
@@ -137,7 +192,7 @@ class Particle:
 
             Args:
                 pos: 2D position in pixels
-                angle: initial direction in degrees
+                angle: initial target in degrees
 
             Returns:
                 The particle being build.
@@ -148,18 +203,24 @@ class Particle:
             return self
 
         def velocity(self, speed: float, radial_velocity: DEGREES = 0):
-            """Speed is along the direction, and radial_velocity is how fast this direction changes.
+            """Speed is along the target, and radial_velocity is how fast this target changes.
 
             Args:
-                speed: px/frame along the direction
+                speed: px/frame along the target
                 radial_velocity: degrees/frame of angle change
             """
             self._p.speed = speed
             self._p.angle_vel = radial_velocity
             return self
 
+        def constant_force(self, velocity: Vector2):
+            """Add the given velocity to the particle's position every frame."""
+
+            self._p.constant_force = velocity
+            return self
+
         def acceleration(self, directional: float):
-            """Set the acceleration along the direction and the angular acceleration"""
+            """Set the acceleration along the target and the angular acceleration"""
             self._p.acc = directional
             return self
 
@@ -179,18 +240,54 @@ class Particle:
             self._p.lifespan = lifespan
             return self
 
-        def anim(self, animation: Callable[[P], None]):
+        def transparency(self, alpha: int):
+            """Set the transparency of the particle between 0 and 255."""
+            self._p.alpha = alpha
+            return self
+
+        def anim(self, animation: Callable[[P], None]) -> Self:
             self._p.animations.append(animation)
             return self
 
-        def anim_fade(self):
-            def fade(particle):
-                alpha = int(255 * (1 - particle.life_prop))
-                particle.alpha = alpha
+        def anim_attr(self, attr: str, func: Callable[[float], float]) -> Self:
+            """Set the attribute of the particle using a function of its life proportion."""
+            assert hasattr(self._p, attr), f"Particle has no attribute {attr}"
+
+            def anim(particle: P):
+                setattr(particle, attr, func(particle.life_prop))
+            return self.anim(anim)
+
+        def anim_alpha(self, func: Callable[[float], int]) -> Self:
+            """Set the alpha of the particle using a function of its life proportion."""
+            def anim(particle: P):
+                particle.alpha = func(particle.life_prop)
+            return self.anim(anim)
+
+        def anim_fade(self, fade_start=0):
+            def fade(particle: P, fs=fade_start):
+                if particle.life_prop > fs:
+                    t = (particle.life_prop - fs) / (1 - fs)
+                    particle.alpha = int(255 * (1 - t))
 
             return self.anim(fade)
 
+        def anim_gravity(self, gravity: float | Vector2 | tuple[float, float]) -> Self:
+            """Add gravity to the particle."""
+            if isinstance(gravity, (int, float)):
+                gravity = Vector2(0, gravity)
+
+            def gravity_anim(particle: Particle):
+                vel = from_polar(particle.speed, particle.angle)
+                vel += gravity
+                particle.speed, particle.angle = vel.as_polar()
+
+            return self.anim(gravity_anim)
+
         def anim_blink(self, up_duration=0.5, pow=2):
+            """Make the particle blink.
+            Increase alpha linearly for a proportion of `up_duration` of its life, then decrease it linearly.
+            If `pow` is not 1, uses a power function instead of a linear one.
+            """
             def blink(particle):
                 if particle.life_prop < up_duration:
                     a = particle.life_prop / up_duration
@@ -202,7 +299,7 @@ class Particle:
             return self.anim(blink)
 
         def anim_bounce_rect(self, rect):
-            """Make the particle bounce inside of the rectangle."""
+            """Make the particle bounce on the sides, inside the rectangle."""
 
             rect = pygame.Rect(rect)
 
@@ -210,9 +307,7 @@ class Particle:
                 angle = particle.angle % 360
                 if particle.pos.x - particle.size < rect.left and 90 < angle < 270:
                     particle.angle = 180 - angle
-                elif particle.pos.x + particle.size > rect.right and (
-                    angle < 90 or angle > 270
-                ):
+                elif particle.pos.x + particle.size > rect.right and (angle < 90 or angle > 270):
                     particle.angle = 180 - angle
 
                 angle = particle.angle % 360
@@ -222,6 +317,31 @@ class Particle:
                     particle.angle = -angle
 
             return self.anim(bounce_rect)
+
+        def anim_shrink(self):
+            """Make the particle shrink linearly as it ages."""
+            initial_size = self._p.size
+
+            def shrink(particle):
+                particle.size = initial_size * (1 - particle.life_prop)
+
+            return self.anim(shrink)
+
+        def anim_bounce_size(self, increase_duration=0.3, k=10):
+            initial_size = self._p.size
+
+            def bounce_size(particle):
+                particle.size = bounce(particle.life_prop, increase_duration, k) * initial_size
+
+            return self.anim(bounce_size)
+
+        def anim_bounce_size_and_shrink(self, stretch=5):
+            initial_size = self._p.size
+
+            def bounce_size_and_shrink(particle):
+                particle.size = exp_impulse(particle.life_prop, stretch) * initial_size
+
+            return self.anim(bounce_size_and_shrink)
 
         def apply(self, func):
             """Call a building function on the particle. Useful to factor parts of the build."""
@@ -246,6 +366,7 @@ class Particle:
             cos(self.angle * radians) * self.speed,
             sin(self.angle * radians) * self.speed,
         )
+        self.pos += self.constant_force
 
         self.inner_rotation += self.inner_rotation_speed
 
@@ -255,14 +376,17 @@ class Particle:
             for anim in self.animations:
                 anim(self)
 
-    def draw(self, surf):
-        raise NotImplementedError()
+    def draw(self, gfx: GFX):
+        raise NotImplementedError(f"Particle {self} does not implement draw()")
+
+    def draw_no_gfx(self, screen):
+        raise NotImplementedError(f"Particle {self} does not implement draw_no_gfx()")
 
 
 class DrawnParticle(Particle):
     def __init__(self, color=None):
         self.color = pygame.Color(color or 0)
-        super().__init__()
+        Particle.__init__(self)
 
     @property
     def alpha(self):
@@ -273,22 +397,37 @@ class DrawnParticle(Particle):
         self.color.a = value
 
     class Builder(Particle.Builder["DrawnParticle"]):
-        def hsv(self, hue, saturation=1.0, value=1.0):
+        def hsv(self, hue: float, saturation: float = 100, value: float = 100):
             hue = round(hue) % 360
-            saturation = clamp(0, 100, round(100 * saturation))
-            value = clamp(0, 100, round(100 * value))
+            saturation = clamp(saturation, 0, 100)
+            value = clamp(value, 0, 100)
             self._p.color.hsva = (hue, saturation, value, 100)
             return self
 
-        def anim_shrink(self):
-            initial_size = self._p.size
+        def anim_gradient_to(self, h0, s0, v0, h1, v1, s1):
+            """Animate the color of the particle in hsv space.
 
-            def shrink(particle):
-                particle.size = initial_size * (1 - particle.life_prop)
+            Animations of the transparency should come after this one
+            """
 
-            return self.anim(shrink)
+            # h0, s0, v0, a = self._p.color.hsva
+            # h1 = h if h is not None else h0
+            # s1 = clamp(s) * 100 if s is not None else s0
+            # v1 = clamp(v) * 100 if v is not None else v0
 
-    def builder(self):
+            def gradient_to(particle):
+                p = 1 - particle.life_prop
+                t = particle.life_prop
+
+                h = int(p * h0 + t * h1) % 360
+                s = int(100 * (p * s0 + t * s1))
+                v = int(100 * (p * v0 + t * v1))
+                r = h, s, v, 100
+                particle.color.hsva = r
+
+            return self.anim(gradient_to)
+
+    def builder(self) -> Builder:
         # the method is here only for type hinting
         return self.Builder(self)
 
@@ -298,37 +437,42 @@ class CircleParticle(DrawnParticle):
         super().__init__(color)
         self.filled = filled
 
-    def draw(self, surf):
+    def draw(self, gfx: GFX):
+        gfx.circle(self.color, self.pos, self.size, 1 - self.filled)
+
+    def draw_no_gfx(self, surf):
         if self.color.a < 255:
             if self.filled:
-                gfx.filled_circle(
+                pygame.gfxdraw.filled_circle(
                     surf, int(self.pos.x), int(self.pos.y), int(self.size), self.color
                 )
             else:
-                gfx.circle(
-                    surf, int(self.pos.x), int(self.pos.y), int(self.size), self.color
-                )
+                pygame.gfxdraw.circle(surf, int(self.pos.x), int(self.pos.y), int(self.size), self.color)
 
         else:
             pygame.draw.circle(surf, self.color, self.pos, self.size, 1 - self.filled)
 
 
 class SquareParticle(DrawnParticle):
-    def draw(self, surf):
+    def draw(self, gfx: GFX):
+        gfx.box(self.color, (self.pos - (self.size / 2, self.size / 2), (self.size, self.size)))
+
+    def draw_no_gfx(self, surf):
+        pos = self.pos - (self.size / 2, self.size / 2)
         if self.color.a < 255:
-            gfx.box(surf, (self.pos, (self.size, self.size)), self.color)
+            pygame.gfxdraw.box(surf, (pos, (self.size, self.size)), self.color)
         else:
-            pygame.draw.rect(surf, self.color, (self.pos, (self.size, self.size)))
+            pygame.draw.rect(surf, self.color, (pos, (self.size, self.size)))
 
 
 class PolygonParticle(DrawnParticle):
     def __init__(self, vertices: int, color=None, vertex_step: int = 1):
         """
         A particle shaped in a regular polygon.
-        
+
         Args:
             vertices: number of vertices
-            color: 
+            color:
             vertex_step: order in which to draw the vertices.
                 This can be used to draw star shaped pattern.
                 Rhe order will be 1, 1+step, 1+2*step...
@@ -339,17 +483,23 @@ class PolygonParticle(DrawnParticle):
         self.vertex_step = vertex_step
         self.vertices = vertices
 
-    def draw(self, surf):
+    def draw(self, gfx: GFX):
         points = [
             self.pos
-            + polar(
-                self.size,
-                self.inner_rotation + i * 360 / self.vertices * self.vertex_step,
-            )
+            + from_polar(self.size, self.inner_rotation + i * 360 / self.vertices * self.vertex_step, )
             for i in range(self.vertices)
         ]
 
-        gfx.filled_polygon(surf, points, self.color)
+        gfx.polygon(self.color, points)
+
+    def draw_no_gfx(self, surf):
+        points = [
+            self.pos
+            + from_polar(self.size, self.inner_rotation + i * 360 / self.vertices * self.vertex_step, )
+            for i in range(self.vertices)
+        ]
+
+        pygame.gfxdraw.filled_polygon(surf, points, self.color)
 
 
 class ShardParticle(DrawnParticle):
@@ -365,19 +515,23 @@ class ShardParticle(DrawnParticle):
         self.tail = tail
         self.head = head
 
-    def draw(self, surf):
-        vel = polar(self.speed, self.angle)
+    def points(self):
+        vel = from_polar(self.speed, self.angle)
         vel.scale_to_length(self.size)
         cross = Vector2(-vel.y, vel.x)
 
-        points = [
+        return [
             self.pos + vel * self.head,
             self.pos + cross,
             self.pos - vel * self.tail,
             self.pos - cross,
         ]
 
-        gfx.filled_polygon(surf, points, self.color)
+    def draw(self, gfx: GFX):
+        gfx.polygon(self.color, self.points())
+
+    def draw_no_gfx(self, surf):
+        pygame.gfxdraw.filled_polygon(surf, self.points(), self.color)
 
 
 class LineParticle(DrawnParticle):
@@ -386,10 +540,15 @@ class LineParticle(DrawnParticle):
         self.width = width
         super().__init__(color)
 
-    def draw(self, surf):
-        end = vec2int(self.pos - polar(self.length, self.angle))
+    def draw(self, gfx: GFX):
+        end = self.pos - from_polar(self.length, self.angle)
+        gfx.line(self.color, self.pos, end)
+
+    def draw_no_gfx(self, surf):
+        end = vec2int(self.pos - from_polar(self.length, self.angle))
         start = vec2int(self.pos)
-        gfx.line(surf, *start, *end, self.color)
+        # noinspection PyTypeChecker
+        pygame.gfxdraw.line(surf, *start, *end, self.color)
 
 
 class ImageParticle(Particle):
@@ -400,6 +559,8 @@ class ImageParticle(Particle):
         self.surf = pygame.Surface((1, 1))
 
         super().__init__()
+
+        self.size = min(self.original_surf.get_size())
 
     @property
     def alpha(self):
@@ -414,39 +575,45 @@ class ImageParticle(Particle):
         self.need_redraw = False
         w, h = self.original_surf.get_size()
         ratio = self.size / min(w, h)
-        surf = pygame.transform.scale(
-            self.original_surf, vec2int((w * ratio, h * ratio))
-        )
+        surf = pygame.transform.scale(self.original_surf, vec2int((w * ratio, h * ratio)))
 
         surf.set_alpha(self.alpha)
         return surf
 
-    def draw(self, surf: pygame.Surface):
+    def draw(self, gfx: GFX):
+        if self.need_redraw:
+            self.surf = self.redraw()
+
+        gfx.blit(self.surf, center=self.pos)
+
+    def draw_no_gfx(self, surf: pygame.Surface):
         if self.need_redraw:
             self.surf = self.redraw()
 
         surf.blit(self.surf, self.surf.get_rect(center=self.pos))
 
-    class Builder(Particle.Builder):
-        def anim_shrink(self):
-            initial_size = self._p.size
+    def logic(self):
+        last_size = self.size
+        super(ImageParticle, self).logic()
+        if int(last_size) != int(self.size):
+            self.need_redraw = True
 
-            def shrink(particle):
-                size = initial_size * (1 - particle.life_prop)
-                if size != int(particle.size):
-                    particle.need_redraw = True
-                    particle.size = size
 
-            return self.anim(shrink)
+class TextParticle(DrawnParticle, ImageParticle):
+    def __init__(self, txt, color=None, font_name=None):
+        DrawnParticle.__init__(self, color)
+        self.text = txt
+        self.font_name = font_name
+        ImageParticle.__init__(self, self.redraw())
 
-    def builder(self):
-        # the method is here only for type hinting
-        return self.Builder(self)
+    def redraw(self):
+        surf = text(self.text, int(self.size), tuple(self.color), self.font_name)
+        return surf
 
 
 def main():
     SIZE = (1300, 800)
-    display = pygame.display.set_mode(SIZE,)
+    display = pygame.display.set_mode(SIZE, )
     particles = ParticleSystem()
     clock = pygame.time.Clock()
 
@@ -514,7 +681,7 @@ def main():
         "Sawubona",
         "Ngiyakwemukela",
     ]
-    texts_surfs = [DEFAULT_FONT.render(text, 1, "white") for text in texts]
+    texts_surfs = [DEFAULT_FONT.render(text, True, "white") for text in texts]
 
     def base(y):
         return lambda builder: (
@@ -528,28 +695,25 @@ def main():
 
     particles.fountains = [
         ParticleFountain(
-            lambda: PolygonParticle(5, "#00a590", 2).builder().apply(base(50)).build(),
-            1,
+            lambda: PolygonParticle(5, "#00a590", 2).builder().apply(base(50)).build(), 1,
         ),
-        ParticleFountain(
-            lambda: CircleParticle("#c09540").builder().apply(base(150)).build(), 1,
-        ),
+        ParticleFountain(lambda: CircleParticle("#c09540").builder().apply(base(150)).build(), 1, ),
         ParticleFountain(
             lambda: PolygonParticle(6, "#a400a5").builder().apply(base(250)).build(), 1,
         ),
         ParticleFountain(
             lambda: SquareParticle()
             .builder()
+            .hsv(gauss(250, 15), 80, 80)
             .apply(base(350))
-            .hsv(gauss(250, 15), 0.8, 0.8)
             .build(),
         ),
         ParticleFountain(
             lambda: PolygonParticle(randint(3, 5))
             .builder()
+            .hsv(gauss(frame / 5, 8), 100, gauss(90, 5))
             .at((uniform(0, SIZE[0]), SIZE[1] + 10), gauss(-90, 5))
             .velocity(gauss(3, 0.5))
-            .hsv(gauss(frame / 5, 8), 1, gauss(0.9, 0.05))
             .inner_rotation(0, gauss(0, 2))
             .anim_fade()
             .anim_shrink()
@@ -619,6 +783,8 @@ def main():
         ),
     ]
 
+    gfx = GFX(display)
+
     start = time()
     frame = 0
     running = True
@@ -634,16 +800,18 @@ def main():
                     running = False
                 elif key == pygame.K_SPACE:
                     do_logic = not do_logic
+                elif key == pygame.K_g:
+                    particles.use_gfx = not particles.use_gfx
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 for _ in range(200):
                     angle = uniform(0, 360)
                     particles.add(
                         CircleParticle()
                         .builder()
+                        .hsv(angle)
                         .at(event.pos, angle)
                         .velocity(gauss(10, 0.5))
                         # .acceleration(-0.05)
-                        .hsv(angle)
                         .anim_shrink()
                         .anim_bounce_rect(((0, 0), SIZE))
                         .build()
@@ -653,10 +821,10 @@ def main():
             particles.logic()
 
         display.fill("#282832")
-        particles.draw(display)
+        particles.draw(gfx)
 
         s = DEFAULT_FONT.render(
-            f"FPS: {clock.get_fps():.2f}  Particles: {len(particles)}", 1, "white"
+            f"FPS: {clock.get_fps():.2f}  Particles: {len(particles)}", True, "white"
         )
         display.blit(s, (5, 5))
 

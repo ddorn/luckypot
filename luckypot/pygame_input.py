@@ -10,9 +10,12 @@ __all__ = [
     "Axis",
     "QuitEvent",
     "KeyPress",
+    "MouseButtonPress",
     "JoyButton",
     "JoyAxisTrigger",
     "JoyAxis",
+    "JoyHat",
+    "JoyHatButton",
 ]
 
 version = "1.0"
@@ -57,6 +60,24 @@ class ButtonInput:
 
 
 @dataclass(frozen=True)
+class MouseButtonPress(ButtonInput):
+    """Represent a single button on the mouse."""
+
+    button: int
+
+    def match(self, event):
+        """Whether the event corresponds to this mouse button press or release."""
+        return (
+            event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP)
+            and event.button == self.button
+        )
+
+    def pressed(self, event) -> bool:
+        """Whether a matching event is a press or a release"""
+        return event.type == pygame.MOUSEBUTTONDOWN
+
+
+@dataclass(frozen=True)
 class KeyPress(ButtonInput):
     """Represent a single key."""
 
@@ -69,6 +90,83 @@ class KeyPress(ButtonInput):
     def pressed(self, event) -> bool:
         """Whether a matching event is a press or a release"""
         return event.type == pygame.KEYDOWN
+
+
+@dataclass(frozen=True)
+class JoyHat:
+    axis: int
+    """axis to check for (0: y, 1:x)"""
+    joy_id: int = 0
+    """The id used to initialise the joystick."""
+    use_ps4_buttons: bool = False
+    """Whether to allow buttons 11-14 to be used as dpad
+    (ps4 controllers use these buttons for dpads)"""
+    hat: int = 0
+    """Hat to use (if using normal hats, not buttons)"""
+
+    _button_dpad = ({12: -1, 11: 1}, {13: -1, 14: 1})
+
+    def match(self, event):
+        """Whether the event corresponds to this axis."""
+
+        return (
+            event.type == pygame.JOYHATMOTION
+            and event.joy == self.joy_id
+            and event.axis == self.axis
+        ) or (
+            self.use_ps4_buttons
+            and event.type in (pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP)
+            and event.joy == self.joy_id
+            and event.button in self._button_dpad[self.axis]
+        )
+
+    def pressed(self, event):
+        """The value of a matching event."""
+        if event.type == pygame.JOYHATMOTION:
+            return event.value[self.axis]
+        if self.use_ps4_buttons and event.type == pygame.JOYBUTTONDOWN:
+            return self._button_dpad[self.axis].get(event.button, 0)
+        return 0
+
+
+@dataclass(frozen=True)
+class JoyHatButton:
+    axis: int
+    """axis to check for (0: y, 1:x)"""
+    button: int
+    """Button to check for in the axis (-1 or 1)"""
+    joy_id: int = 0
+    """The id used to initialise the joystick."""
+    use_ps4_buttons: bool = False
+    """Whether to allow buttons 11-14 to be used as dpad
+    (ps4 controllers use these buttons for dpads)"""
+    hat: int = 0
+    """Hat to use (if using normal hats, not buttons)"""
+
+    _button_dpad = ({-1: 12, 1: 11}, {-1: 13, 1: 14})
+
+    def match(self, event):
+        """Whether the event corresponds to this axis."""
+
+        return (
+            event.type == pygame.JOYHATMOTION
+            and event.joy == self.joy_id
+            and event.axis == self.axis
+            and event.value == self.button
+        ) or (
+            self.use_ps4_buttons
+            and event.type in (pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP)
+            and event.joy == self.joy_id
+            and event.button == self._button_dpad[self.axis].get(self.button, -1)
+        )
+
+    def pressed(self, event):
+        """The value of a matching event."""
+        if event.type == pygame.JOYHATMOTION:
+            return event.value[self.axis] == self.button
+        if self.use_ps4_buttons and event.type == pygame.JOYBUTTONDOWN:
+            return event.button == self._button_dpad[self.axis].get(self.button, -1)
+        return 0
 
 
 @dataclass(frozen=True)
@@ -104,7 +202,7 @@ class JoyAxisTrigger(ButtonInput):
     """
 
     axis: int
-    threshold: int = 0.5
+    threshold: float = 0.5
     above: bool = True
     """Whether the button is pressed when the value is above or below the threshold"""
     joy_id: int = 0
@@ -274,15 +372,19 @@ class Button:
 
     def always_call(self, callback):
         self._always.add(callback)
+        return self
 
     def on_press(self, callback):
         self._on_press.add(callback)
+        return self
 
     def on_release(self, callback):
         self._on_release.add(callback)
+        return self
 
     def on_double_press(self, callback):
         self._on_double_press.add(callback)
+        return self
 
     def on_press_repeated(self, callback, delay):
         """
@@ -291,6 +393,7 @@ class Button:
         """
 
         self._repeat.add(RepeatCallback(callback, delay))
+        return self
 
     def remove(self, callback):
         """Remove a callback from from everywhere it was registered."""
@@ -354,6 +457,7 @@ class Axis:
 
     def always_call(self, callback):
         self._callbacks.add(callback)
+        return self
 
     def remove(self, callback):
         if callback in self._callbacks:

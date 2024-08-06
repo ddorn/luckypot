@@ -2,11 +2,12 @@ from time import time
 from typing import Type
 
 import pygame
+import sys
 
-from gfx import GFX
-from screen import ExtendFieldOfViewScreen, Screen
-from settings import settings
-from state_machine import State, StateMachine
+from .gfx import GFX
+from .screen import ExtendFieldOfViewScreen, Screen
+from .settings import settings
+from .state_machine import GAME_NAME, State, StateMachine, StateOperations
 
 __all__ = ["App"]
 
@@ -22,17 +23,21 @@ class App(StateMachine):
     All the game logic and randering is done by the states themselves.
     """
 
-    FPS = 60
-    NAME = "Pygame window"
+    NAME = GAME_NAME
     MAIN_APP: "App" = None
+    MOUSE_VISIBLE = True
+    USE_FPS_TITLE = False
 
-    def __init__(self, initial_state: Type[State], resizing: Screen):
+    def __init__(self, initial_state: Type[State], resizing: Screen, gfx_class: Type[GFX] = GFX):
         App.MAIN_APP = self
 
         self.clock = pygame.time.Clock()
         self.screen = resizing
-        self.gfx = GFX(self.screen.draw_surface)
+        self.gfx_class = gfx_class
+        self.gfx = self.gfx_class(self.screen.draw_surface)
         pygame.display.set_caption(self.NAME)
+
+        pygame.mouse.set_visible(self.MOUSE_VISIBLE)
 
         super().__init__(initial_state)
 
@@ -48,7 +53,9 @@ class App(StateMachine):
             self.screen.update_window()
 
             pygame.display.update()
-            self.clock.tick(self.FPS)
+            self.clock.tick(self.state.FPS)
+            if self.USE_FPS_TITLE:
+                pygame.display.set_caption(f"{self.NAME} - {self.clock.get_fps():.1f} FPS")
 
             frame += 1
             self.state = self.state.next_state
@@ -58,24 +65,38 @@ class App(StateMachine):
         settings.save()
 
     def events(self):
-
         events = list(pygame.event.get())
         for event in events:
             if event.type == pygame.VIDEORESIZE:
                 old = self.screen.draw_surface.get_size()
                 self.screen.resize(event.size)
-                self.gfx = GFX(self.screen.draw_surface)
+                self.gfx = self.gfx_class(self.screen.draw_surface)
                 new = self.screen.draw_surface.get_size()
                 if old != new:
                     self.state.resize(old, new)
             elif event.type in (
-                pygame.MOUSEMOTION,
-                pygame.MOUSEBUTTONDOWN,
-                pygame.MOUSEBUTTONUP,
+                    pygame.MOUSEMOTION,
+                    pygame.MOUSEBUTTONDOWN,
+                    pygame.MOUSEBUTTONUP,
             ):
                 self.screen.fixup_mouse_input(event)
 
         self.state.handle_events(events)
+
+    @classmethod
+    def current_state(cls):
+        """Current state of the main app."""
+        return cls.MAIN_APP.state
+
+    def quit(self):
+        """Properly exit the app."""
+
+        while self.stack:
+            self.state = (StateOperations.POP, None)
+
+        settings.save()
+
+        sys.exit()
 
 
 if __name__ == "__main__":
