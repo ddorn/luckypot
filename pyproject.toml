@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "engine"
+name = "luckypot"
 version = "0.1.0"
-description = ""
+description = "Another pygame engine. It might be what you need, if you're lucky to be called Diego."
 authors = ["ddorn <diego.dorn@free.fr>"]
-license = "MIT"
+license = "GPL-3.0"
 
 [tool.poetry.dependencies]
 python = "^3.8"
