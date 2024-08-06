@@ -11,7 +11,7 @@ import pygame
 import pygame.gfxdraw
 
 import assets
-from engine import *
+from luckypot import *
 
 R = 40
 W, H = SIZE = (16 * R, 9 * R)
