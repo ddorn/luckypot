@@ -1,12 +1,17 @@
+import sys
+#sys.path.append('engine')
+
+from collections import defaultdict
 from math import cos, pi, sin
+from operator import attrgetter
 from random import gauss, random, randrange, uniform
+from typing import Dict, List
 
 import pygame
 import pygame.gfxdraw
 
 import assets
 from engine import *
-from particles import rrange
 
 R = 40
 W, H = SIZE = (16 * R, 9 * R)
@@ -28,35 +33,36 @@ class Sunset(State):
 
     def __init__(self):
         super().__init__()
-        # self.particles = ParticleSystem()
-        # self.particles.fountains = [
-        #     ParticleFountain(
-        #         lambda: SquareParticle("white")
-        #         .builder()
-        #         .at((uniform(0, W), uniform(0, H / 2)))
-        #         .velocity(0)
-        #         .sized(randrange(1, 3))
-        #         .living(180)
-        #         .anim_blink()
-        #         .build(),
-        #         0.5,
-        #     ),
-        #     ParticleFountain(
-        #         lambda: LineParticle(gauss(8, 1), LINES)
-        #         .builder()
-        #         .at(
-        #             (x := (uniform(0, W), H / 2 + H / 2 * random() ** 2)),
-        #             180 - (infinity - x).angle_to((1, 0)),
-        #         )
-        #         .living(100)
-        #         .velocity(1, 0)
-        #         .anim_blink(0.2, 0.5)
-        #         .build()
-        #     ),
-        # ]
+        self.particles = ParticleSystem()
+        self.particles.fountains = [
+            ParticleFountain(
+                lambda: SquareParticle("white")
+                .builder()
+                .at((uniform(0, W), uniform(0, H / 2)))
+                .velocity(0)
+                .sized(randrange(1, 3))
+                .living(180)
+                .anim_blink()
+                .build(),
+                0.5,
+            ),
+            # ParticleFountain(
+            #     lambda: LineParticle(gauss(8, 1), LINES)
+            #     .builder()
+            #     .at(
+            #         (x := (uniform(0, W), H / 2 + H / 2 * random() ** 2)),
+            #         180 - (infinity - x).angle_to((1, 0)),
+            #     )
+            #     .living(100)
+            #     .velocity(1, 0)
+            #     .anim_blink(0.2, 0.5)
+            #     .build()
+            # ),
+        ]
 
         self.add(Bird((0.6 * W, 30)))
         self.add(Bird((0.6 * W - 18, 30), True))
+        self.add(Boids())
 
     def draw_sun(self, radius=50, top=SUN_TOP, bottom=SUN_BOTTOM, alpha=255):
         size = radius * 2 + 1, radius * 2 + 1
@@ -98,7 +104,7 @@ class Sunset(State):
 
     def logic(self):
         super().logic()
-        # self.particles.logic()
+        self.particles.logic()
 
     def draw(self, gfx: "GFX"):
 
@@ -106,15 +112,15 @@ class Sunset(State):
             color = utils.mix(SKY_TOP, SKY_END, y / H * 2)
             gfx.surf.fill(color, (0, y, W, band_height))
 
-        # self.particles.draw(gfx.surf)
+        self.particles.draw(gfx.surf)
 
         # Sun rays and sun
         self.draw_rays(gfx, infinity, SUN_BOTTOM + (50,))
         gfx.blit(self.draw_sun(54), center=infinity)
         # Second sun
-        # other = (W, -15)
-        # self.draw_rays(gfx, other, SUN_TOP + (30,))
-        # gfx.blit(self.draw_sun(4 * 9, SUN_TOP, SUN_TOP), center=other)
+        other = (W, -15)
+        self.draw_rays(gfx, other, SUN_TOP + (30,))
+        gfx.blit(self.draw_sun(4 * 9, SUN_TOP, SUN_TOP), center=other)
 
         second_half = pygame.Rect(0, H / 2, W, H / 2)
         gfx.surf.fill(BG_COLOR, second_half)
@@ -146,13 +152,16 @@ class Sunset(State):
 
         # self.particles.draw(gfx.surf)
 
-        margin = 30
-        menu_rect = pygame.Rect(
-            W / 2 + margin, margin, W / 2 - 2 * margin, H - margin * 2
-        )
-        menu_rect.midright = W - margin, H / 2
-        pygame.gfxdraw.box(gfx.surf, menu_rect, (0, 0, 0, 125))
-        pygame.draw.rect(gfx.surf, utils.mix(SUN_TOP, SUN_BOTTOM, 0.5), menu_rect, 1)
+        super(Sunset, self).draw(gfx)
+
+        if "DRAW MENU":
+            margin = 30
+            menu_rect = pygame.Rect(
+                W / 2 + margin, margin, W / 2 - 2 * margin, H - margin * 2
+            )
+            menu_rect.midright = W - margin, H / 2
+            pygame.gfxdraw.box(gfx.surf, menu_rect, (0, 0, 0, 125))
+            pygame.draw.rect(gfx.surf, utils.mix(SUN_TOP, SUN_BOTTOM, 0.5), menu_rect, 1)
 
         # signature
         sig = assets.image("ByCozyFractal").copy()
@@ -163,8 +172,6 @@ class Sunset(State):
             BG_COLOR + (200,),
         )
         gfx.blit(sig, bottomleft=(4, H - 2))
-
-        super(Sunset, self).draw(gfx)
 
 
 class Bird(Object):
@@ -189,8 +196,9 @@ class Bird(Object):
     def pick(self):
         self.anim = Animation("bird pick", self.flip)
 
-        for _ in range(len(self.anim)):
-            yield
+        for _ in rrange(1.3):
+            for _ in range(len(self.anim)):
+                yield
 
         self.anim = Animation("bird idle", self.flip)
 
@@ -217,7 +225,7 @@ class Bird(Object):
             yield
 
         self.pos = start_pos
-        self.anim = Animation("bird pick", self.flip)
+        self.anim = Animation("bird idle", self.flip)
 
     def logic(self, state):
         super().logic(state)
@@ -225,6 +233,176 @@ class Bird(Object):
 
     def draw(self, gfx):
         gfx.blit(self.anim.image(), midbottom=self.pos)
+
+
+class Boid:
+    AVOID_STRENGTH = 0.1
+    AVOID_RADIUS = 10
+    ALIGN_STRENGTH = 0.05
+    ALIGN_RADIUS = 20
+    COHESION_STRENGTH = 0.01
+    COHESION_RADIUS = 30
+
+    WALL_RADIUS = 50
+    WALL_STRENGTH = 0.04
+
+    PLAY_RECT = pygame.Rect(0, 0, W, H / 2)
+    WALLS = pygame.Rect(PLAY_RECT).inflate(-2 * WALL_RADIUS, -2 * WALL_RADIUS)
+
+    def __init__(self, pos):
+        self.max_speed = 3
+        self.pos = pygame.Vector2(pos)
+        a = uniform(0, 360)
+        self.vel = utils.from_polar(self.max_speed, a)
+        assert abs(a - self.angle) < 0.00001
+        self.angle += 0
+
+    @property
+    def angle(self):
+        return (-self.vel.angle_to((1, 0))) % 360
+
+    @angle.setter
+    def angle(self, value):
+        self.vel.from_polar((self.vel.length(), value))
+
+    @property
+    def speed(self):
+        return self.vel.length()
+
+    @speed.setter
+    def speed(self, value):
+        self.vel.scale_to_length(value)
+
+    def flockmates(self, all_boids: "SpaceHash", dist):
+        x, y = self.grid(all_boids.case_size)
+        return [
+            boid
+            for boid in all_boids.neighbors(x, y)
+            if boid.pos.distance_to(self.pos) < dist and boid is not self
+        ]
+
+    def logic(self, all_boids: "SpaceHash"):
+        acc = pygame.Vector2()
+
+        acc += self.avoid(all_boids)
+        acc += self.align(all_boids)
+        acc += self.cohesion(all_boids)
+        acc += self.walls()
+
+        self.acc = acc
+        self.vel += acc
+        if self.vel.length() > self.max_speed:
+            self.speed = self.max_speed
+        self.pos += self.vel
+
+    def avoid(self, all_boids):
+        # Assuming there is only one boid
+
+        force = pygame.Vector2()
+        for boid in self.flockmates(all_boids, self.AVOID_RADIUS):
+            dist = self.pos.distance_to(boid.pos)
+            force += (self.pos - boid.pos) / dist ** 2
+
+        return force * self.AVOID_STRENGTH
+
+    def align(self, all_boids):
+        alignment = self.flockmates(all_boids, self.ALIGN_RADIUS)
+        if not alignment:
+            return pygame.Vector2()
+
+        avg_vel = sum((b.vel for b in alignment), start=pygame.Vector2())
+        avg_vel.scale_to_length(self.max_speed)
+        steering = avg_vel - self.vel
+
+        return steering * self.ALIGN_STRENGTH
+
+    def cohesion(self, all_boids):
+        cohesion = self.flockmates(all_boids, self.COHESION_RADIUS)
+        if not cohesion:
+            return pygame.Vector2()
+
+        center_of_mass = sum((b.pos for b in cohesion), start=pygame.Vector2()) / len(
+            cohesion
+        )
+        vec_to_center = center_of_mass - self.pos
+        if vec_to_center:
+            vec_to_center.scale_to_length(self.max_speed)
+        steering = vec_to_center - self.vel
+
+        return steering * self.COHESION_STRENGTH
+
+    def walls(self):
+        distances = [*self.pos, *(self.PLAY_RECT.bottomright - self.pos)]
+        normals = [
+            (1, 0),
+            (0, 1),
+            (-1, 0),
+            (0, -1),
+        ]
+        steering = pygame.Vector2()
+        for dist, normal in zip(distances, normals):
+            if dist < self.WALL_RADIUS:
+                # We project the normal on the velocity ro make it steer away
+                dir = self.vel.normalize()
+                avg = (
+                    1 - self.WALL_STRENGTH
+                ) * dir + self.WALL_STRENGTH * pygame.Vector2(normal)
+                avg.scale_to_length(self.max_speed)
+                steering += avg - self.vel
+                continue
+                dot = dir.dot(normal)
+                if abs(dot) > 0.999:
+                    perp = pygame.Vector2(dir.y, -dir.x)
+                else:
+                    perp = dir - pygame.Vector2(normal) * dot
+                steering += perp / dist
+
+        return steering
+
+    def grid(self, case_size):
+        return (self.pos.x // case_size, self.pos.y // case_size)
+
+
+class SpaceHash(defaultdict):
+    def __init__(self, boids, case_size):
+        super().__init__(list)
+        self.case_size = case_size
+
+        for boid in boids:
+            pos = boid.grid(case_size)
+            self[pos].append(boid)
+
+    def neighbors(self, x, y):
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                yield from iter(self[x + dx, y + dy])
+
+
+class Boids(Object):
+    def __init__(self, n_boids=300):
+        super().__init__((0, 0))
+        self.boids = [Boid((uniform(0, W), uniform(0, H / 2))) for _ in range(n_boids)]
+
+    def logic(self, state):
+        case_size = max(Boid.ALIGN_RADIUS, Boid.AVOID_RADIUS, Boid.COHESION_RADIUS) / 2
+        spatial_hash = SpaceHash(self.boids, case_size)
+
+        for boid in self.boids:
+            boid.logic(spatial_hash)
+
+    def draw(self, gfx):
+        for boid in self.boids:
+            pygame.draw.rect(gfx.surf, BG_COLOR, (boid.pos, (2, 2)))
+
+        for b in self.boids[:0]:
+            pygame.draw.circle(gfx.surf, "red", b.pos, b.AVOID_RADIUS, 1)
+            pygame.draw.circle(gfx.surf, "yellow", b.pos, b.ALIGN_RADIUS, 1)
+            pygame.draw.circle(gfx.surf, "green", b.pos, b.COHESION_RADIUS, 1)
+            pygame.draw.line(gfx.surf, "blue", b.pos, b.pos + 10 * b.vel)
+            pygame.draw.line(gfx.surf, "orange", b.pos, b.pos + 1000 * b.acc)
+            pygame.draw.rect(
+                gfx.surf, "violet", b.WALLS, 1,
+            )
 
 
 if __name__ == "__main__":
