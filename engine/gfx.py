@@ -6,7 +6,7 @@ import pygame.gfxdraw
 
 __all__ = ["GFX"]
 
-from utils import vec2int
+from .utils import vec2int
 
 
 class GFX:

@@ -19,6 +19,7 @@ __all__ = [
     "LineParticle",
     "SquareParticle",
     "ShardParticle",
+    "rrange",
 ]
 
 pygame.init()
@@ -325,10 +326,10 @@ class PolygonParticle(DrawnParticle):
     def __init__(self, vertices: int, color=None, vertex_step: int = 1):
         """
         A particle shaped in a regular polygon.
-        
+
         Args:
             vertices: number of vertices
-            color: 
+            color:
             vertex_step: order in which to draw the vertices.
                 This can be used to draw star shaped pattern.
                 Rhe order will be 1, 1+step, 1+2*step...

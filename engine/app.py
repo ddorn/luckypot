@@ -3,10 +3,10 @@ from typing import Type
 
 import pygame
 
-from gfx import GFX
-from screen import ExtendFieldOfViewScreen, Screen
-from settings import settings
-from state_machine import State, StateMachine
+from .gfx import GFX
+from .screen import ExtendFieldOfViewScreen, Screen
+from .settings import settings
+from .state_machine import State, StateMachine
 
 __all__ = ["App"]
 

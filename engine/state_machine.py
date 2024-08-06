@@ -4,7 +4,7 @@ from typing import Type, TypeVar, Union
 import pygame
 from pygame.locals import *
 
-from pygame_input import Button, Inputs, QuitEvent
+from .pygame_input import Button, Inputs, QuitEvent
 
 T = TypeVar("T")
 
