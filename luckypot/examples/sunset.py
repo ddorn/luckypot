@@ -407,6 +407,11 @@ class Boids(Object):
             )
 
 
+
+class SunsetApp(App):
+    INITIAL_SIZE = SIZE
+    INITIAL_STATE = Sunset
+
 if __name__ == "__main__":
     pygame.init()
-    App(Sunset, IntegerScaleScreen(SIZE)).run()
+    SunsetApp().run()

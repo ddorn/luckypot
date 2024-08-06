@@ -116,17 +116,17 @@ class State:
 
 class StateMachine:
     def __init__(self, initial_state: Type[State]):
-        self._state: Union[State, None] = None
-        self.state = initial_state()
+        self._state: State = initial_state()
+        self._state.on_resume()  # Same as in @state.setter
         self.running = True
 
     @property
-    def state(self) -> Union[State, None]:
+    def state(self) -> State:
         """Current state. Setting to None terminates the app."""
         return self._state
 
     @state.setter
-    def state(self, value: State):
+    def state(self, value: State | None):
         if value is self._state:
             return
 

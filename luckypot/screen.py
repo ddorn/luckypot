@@ -1,6 +1,12 @@
 from typing import Tuple
 
 import pygame
+import pygame._sdl2 as sdl2
+
+
+raise ImportError(
+    "This module should not be used anymore. Functionality has been moved to luckypot.app.App"
+)
 
 
 __all__ = [
