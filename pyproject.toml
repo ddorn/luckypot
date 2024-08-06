@@ -6,12 +6,10 @@ authors = ["ddorn <diego.dorn@free.fr>"]
 license = "GPL-3.0"
 packages = [
     { include = "luckypot" },
-    { include = "luckypot.examples" }
 ]
 
 include = [
     "assets/",
-    "luckypot/examples/",
 ]
 
 
