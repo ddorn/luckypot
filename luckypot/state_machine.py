@@ -25,9 +25,11 @@ class BasicState:
         """Called when the state is about to become the current state."""
         self.next_state = (StateOperations.NOP, None)
 
+    def on_pause(self):
+        """Called when the state is about to not be the current state but still in the stack (push)."""
+
     def on_exit(self):
-        """Called when the state is about to not be the current state anymore.
-        It can have been popped, replaced or another state was pushed."""
+        """Called when the state leaves the stack (pop or replace)."""
 
     # State operations
 
@@ -101,7 +103,7 @@ class StateMachine[S: BasicState]:
                 new.on_resume()
             case (StateOperations.PUSH, new):
                 if self.stack:
-                    self.stack[-1].on_exit()
+                    self.stack[-1].on_pause()
                 self.stack.append(new)
                 self.on_state_enter(new)
                 new.on_resume()

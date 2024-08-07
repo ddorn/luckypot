@@ -85,12 +85,13 @@ class State(AppState):
             # pygame.mixer.music.set_volume(VOLUME['BG_MUSIC'] * Settings().music)
             pygame.mixer.music.play(-1)
 
-    def on_exit(self):
-        """Called when the state is about to not be the current state anymore.
-        It can have been popped, replaced or another state was pushed."""
-        super().on_exit()
+    def on_pause(self):
+        super().on_pause()
         self.debug.paused = True
+
+    def on_exit(self):
         play("back")
+        return super().on_exit()
 
     def logic(self):
         """All the logic of the state happens here.
