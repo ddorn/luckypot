@@ -21,12 +21,16 @@ class BasicState:
         super().__init__()
         self.next_state: tuple[StateOperations, BasicState | None] = (StateOperations.NOP, self)
 
-    def on_resume(self):
-        """Called when the state is about to become the current state."""
+    def on_enter(self):
+        """Called when the state enters the stack (push or replace)."""
         self.next_state = (StateOperations.NOP, None)
 
     def on_pause(self):
         """Called when the state is about to not be the current state but still in the stack (push)."""
+
+    def on_resume(self):
+        """Called when the state is again at the top of the stack (after another was pop'ed)."""
+        self.next_state = (StateOperations.NOP, None)
 
     def on_exit(self):
         """Called when the state leaves the stack (pop or replace)."""
@@ -100,13 +104,13 @@ class StateMachine[S: BasicState]:
                     prev.on_exit()
                 self.stack.append(new)
                 self.on_state_enter(new)
-                new.on_resume()
+                new.on_enter()
             case (StateOperations.PUSH, new):
                 if self.stack:
                     self.stack[-1].on_pause()
                 self.stack.append(new)
                 self.on_state_enter(new)
-                new.on_resume()
+                new.on_enter()
             case _:
                 print(type(op).__module__, StateOperations.__module__)
                 print(type(op) is StateOperations)
