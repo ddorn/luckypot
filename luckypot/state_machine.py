@@ -59,6 +59,9 @@ class StateMachine[S: BasicState]:
         self.stack: list[S] = []
         self.execute_state_transition(StateOperations.PUSH, initial_state())
 
+    def on_state_enter(self, state: S):
+        """Override this method to do something when a new state is pushed."""
+
     @property
     def running(self):
         """Whether the state machine is non-empty."""
@@ -94,11 +97,13 @@ class StateMachine[S: BasicState]:
                     prev = self.stack.pop()
                     prev.on_exit()
                 self.stack.append(new)
+                self.on_state_enter(new)
                 new.on_resume()
             case (StateOperations.PUSH, new):
                 if self.stack:
                     self.stack[-1].on_exit()
                 self.stack.append(new)
+                self.on_state_enter(new)
                 new.on_resume()
             case _:
                 print(type(op).__module__, StateOperations.__module__)
