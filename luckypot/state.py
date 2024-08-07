@@ -128,6 +128,8 @@ class State(AppState):
 
     def draw(self, gfx: GFX):
         """Draw the state and all its objects."""
+        super().draw(gfx)
+
         if self.BG_COLOR:
             gfx.fill(self.BG_COLOR)
 
@@ -151,10 +153,12 @@ class State(AppState):
 
     def handle_events(self, events):
         """Handle events for the state."""
+        super().handle_events(events)
         self.inputs.trigger(events)
 
     def resize(self, old, new):
         """Called when the window is resized from old to new."""
+        super().resize(old, new)
         for obj in self.objects:
             obj.resize(old, new)
 
