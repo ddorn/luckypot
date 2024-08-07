@@ -45,11 +45,24 @@ class AppState(BasicState):
     def draw(self, gfx: GFX):
         """Draw the state and all its objects."""
 
+    def handle_event(self, event) -> bool:
+        """Handle a single event for the state.
+
+        Return True if the event was handled and should not be propagated.
+        """
+
+        if event.type == pygame.QUIT:
+            App.MAIN_APP.quit()
+            return True
+
+        return False
+
     def handle_events(self, events):
-        """Handle events for the state."""
-        for event in events:
-            if event.type == pygame.QUIT:
-                App.MAIN_APP.quit()
+        """Handle events for the state.
+
+        Called once per frame, even if there are no events.
+        Prefer handle_event the list of events is not needed.
+        """
 
     def resize(self, old, new):
         """Called when the window is resized from old to new."""
@@ -99,11 +112,11 @@ class App[S: AppState](StateMachine[S]):
         frame = 0
         start = time()
         while self.state is not None:  # Equivalent to self.running
-            self.events()
+            self.handle_events()
             for state in self.stack[:-1]:
                 state.paused_logic()
-            self.state.logic()
-            self.state.draw(self.gfx)
+            self.logic()
+            self.draw()
             self.window.flip()
 
             self.clock.tick(self.state.FPS)
@@ -117,29 +130,47 @@ class App[S: AppState](StateMachine[S]):
         print(f"Game played for {duration:.2f} seconds, at {frame / duration:.1f} FPS.")
         settings.save()
 
-    def events(self):
-        assert self.state is not None
+    def draw(self):
+        """Draw the current state."""
+        if self.state is not None:
+            self.state.draw(self.gfx)
 
-        events = list(pygame.event.get())
-        for event in events:
-            if event.type == pygame.VIDEORESIZE:
-                old = self.window.size
-                self.window.size = event.size
-                self.gfx = self.GFX_CLASS(self.window.get_surface())
-                new = self.window.size
-                print("Resized to", new, "from", old)
-                if old != new:
-                    self.state.resize(old, new)
+    def logic(self):
+        """Logic for the app."""
+        if self.state is not None:
+            self.state.logic()
 
-            # Was from when screen could scale the window.
-            # elif event.type in (
-            #         pygame.MOUSEMOTION,
-            #         pygame.MOUSEBUTTONDOWN,
-            #         pygame.MOUSEBUTTONUP,
-            # ):
-            #     self.screen.fixup_mouse_input(event)
+    def handle_event(self, event) -> bool:
+        """Handle a single event for the app.
 
-        self.state.handle_events(events)
+        Return True if the event was handled and should not be propagated.
+        """
+        if event.type == pygame.QUIT:
+            self.quit()
+            return True
+        elif event.type == pygame.VIDEORESIZE:
+            old = self.window.size
+            self.window.size = event.size
+            self.gfx = self.GFX_CLASS(self.window.get_surface())
+            new = self.window.size
+            if old != new and self.state is not None:
+                self.state.resize(old, new)
+
+            # We want this event to propagate to the state
+            return False
+        elif self.state is not None:
+            return self.state.handle_event(event)
+        return False
+
+    def handle_events(self):
+
+        events = []
+        for event in pygame.event.get():
+            if not self.handle_event(event):
+                events.append(event)
+
+        if self.state is not None:
+            self.state.handle_events(events)
 
     @classmethod
     def current_state(cls):
