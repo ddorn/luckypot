@@ -9,20 +9,17 @@ from .assets import play
 from .constants import *
 from .debug import Debug
 from .gfx import GFX
-from .object import Scriptable
 from .particles import ParticleSystem
 from .pygame_input import Button, Inputs, JoyButton, QuitEvent
 from .settings import settings
-from .state_machine import BasicState
+from .app import AppState
 
 if TYPE_CHECKING:
     from .object import Object
 
 TObject = TypeVar("TObject", bound="Object")
 
-
-class State(BasicState, Scriptable):
-    FPS = 60
+class State(AppState):
     BG_COLOR = "black"
     BG_MUSIC = None
     BG_COLORS = []
@@ -43,8 +40,6 @@ class State(BasicState, Scriptable):
         self.debug = self.add(Debug())
 
         self.inputs = Inputs()
-
-        self.add_script(self.script())
 
     def create_inputs(self) -> Inputs:
         pygame.joystick.init()
@@ -96,17 +91,6 @@ class State(BasicState, Scriptable):
         super().on_exit()
         self.debug.paused = True
         play("back")
-
-    # noinspection PyMethodMayBeStatic
-    def script(self):
-        """Script must be a generator where each yield will correspond to a frame.
-
-        Useful to implement sequential logics.
-        """
-        yield
-
-    def paused_logic(self):
-        """Logic that happens when the state is not the current state."""
 
     def logic(self):
         """All the logic of the state happens here.

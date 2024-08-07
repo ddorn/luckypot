@@ -29,10 +29,13 @@ class Scriptable:
     """
 
     def __init__(self):
+        super().__init__()
         self.scripts = set()
         # To allow scripts to add other scripts
         self.scripts_to_add = set()
         self.script_add_lock = False
+
+        self.add_script(self.script())
 
     def add_script(self, generator: Generator):
         if self.script_add_lock:
@@ -87,6 +90,14 @@ class Scriptable:
         """Script that wait and does nothing until the condition is met."""
         while not condition():
             yield
+
+    def script(self):
+        """Script must be a generator where each yield will correspond to a frame.
+
+        Useful to implement sequential logics.
+        """
+        yield
+
 
 
 

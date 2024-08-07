@@ -8,17 +8,51 @@ import pygame._sdl2 as sdl2
 
 from .gfx import GFX
 from .settings import settings
-from .state_machine import StateMachine, StateOperations
-from .state import State
+from .state_machine import StateMachine, StateOperations, BasicState
 
-__all__ = ["App"]
+__all__ = ["App", "AppState"]
 
 
 if os.environ.get("SDL_VIDEODRIVER") == "wayland":
     os.environ["SDL_VIDEODRIVER"] = "x11"
 
 
-class App(StateMachine):
+class AppState(BasicState):
+    """Base class for all the states in the app.
+
+    Override logic, draw, handle_events, resize and paused_logic to implement
+    the state's behavior.
+
+    See Also:
+        - `state.State` for a base state with objects, particles and
+            pygame-input support.
+    """
+
+    FPS = 60
+
+    def logic(self):
+        """All the logic of the state happens here.
+
+        To change to another state, you need to call any of:
+            - self.pop_state()
+            - self.push_state(new)
+            - self.replace_state(new)
+        """
+
+    def paused_logic(self):
+        """Logic that happens when the state is not the current state."""
+
+    def draw(self, gfx: GFX):
+        """Draw the state and all its objects."""
+
+    def handle_events(self, events):
+        """Handle events for the state."""
+
+    def resize(self, old, new):
+        """Called when the window is resized from old to new."""
+
+
+class App[S: AppState](StateMachine[S]):
     """
     The app is the largest element in the game, as it contains everything else.
 
@@ -30,17 +64,18 @@ class App(StateMachine):
     """
 
     NAME = "Pygame window"
-    MAIN_APP: "App" = None
+    INITIAL_STATE: type[S] = AppState  # type: ignore
+    INITIAL_SIZE = (200, 100)
+
     MOUSE_VISIBLE = True
     USE_FPS_TITLE = False
-    INITIAL_SIZE = (200, 100)
-    INITIAL_STATE = State
     WINDOW_KWARGS = {}
     GFX_CLASS = GFX
 
+    MAIN_APP: "App" = None  # type: ignore
+
     def __init__(self):
         App.MAIN_APP = self
-
 
         self.clock = pygame.time.Clock()
         self.window = pygame.Window(
@@ -80,6 +115,8 @@ class App(StateMachine):
         settings.save()
 
     def events(self):
+        assert self.state is not None
+
         events = list(pygame.event.get())
         for event in events:
             if event.type == pygame.VIDEORESIZE:
@@ -118,6 +155,7 @@ class App(StateMachine):
 
 
 if __name__ == "__main__":
+    from .state import State
 
     class MyState(State):
         BG_COLOR = "#60a450"
