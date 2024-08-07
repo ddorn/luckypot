@@ -47,6 +47,9 @@ class AppState(BasicState):
 
     def handle_events(self, events):
         """Handle events for the state."""
+        for event in events:
+            if event.type == pygame.QUIT:
+                App.MAIN_APP.quit()
 
     def resize(self, old, new):
         """Called when the window is resized from old to new."""
