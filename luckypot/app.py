@@ -7,7 +7,6 @@ import pygame
 import pygame._sdl2 as sdl2
 
 from .gfx import GFX
-from .settings import settings
 from .state_machine import StateMachine, StateOperations, BasicState
 
 __all__ = ["App", "AppState"]
@@ -128,7 +127,6 @@ class App[S: AppState](StateMachine[S]):
 
         duration = time() - start
         print(f"Game played for {duration:.2f} seconds, at {frame / duration:.1f} FPS.")
-        settings.save()
 
     def draw(self):
         """Draw the current state."""
@@ -183,9 +181,11 @@ class App[S: AppState](StateMachine[S]):
         while self.stack:
             self.execute_state_transition(StateOperations.POP, None)
 
-        settings.save()
-
+        self.on_exit()
         sys.exit()
+
+    def on_exit(self):
+        """Called when the app is about to exit."""
 
 
 if __name__ == "__main__":

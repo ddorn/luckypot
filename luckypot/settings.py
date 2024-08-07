@@ -26,18 +26,15 @@ class Settings:
         # Then we set the defaults and load it from the disk
         cls.__init__(self)
         self.load()
-        # Finaly we swap __init__ and reset, so it will not be rest
+        # Finaly we swap __init__ and reset, so it will not be reset
         # Every time Settings() is called, as __init__ is always called after __new__.
         cls.reset = cls.__init__
-        cls.__init__ = lambda s: None
+        cls.__init__ = lambda self: None
 
         return self
 
     def __init__(self):
         self.debug = False
-        self.highscores = []
-        self.name = "Cool kid"
-        self.last_score = None
         self.mute = False
 
     def load(self):
