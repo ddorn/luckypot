@@ -8,7 +8,8 @@ import pygame._sdl2 as sdl2
 
 from .gfx import GFX
 from .settings import settings
-from .state_machine import GAME_NAME, State, StateMachine, StateOperations
+from .state_machine import StateMachine, StateOperations
+from .state import State
 
 __all__ = ["App"]
 
@@ -72,7 +73,7 @@ class App(StateMachine):
                 pygame.display.set_caption(f"{self.NAME} - {self.clock.get_fps():.1f} FPS")
 
             frame += 1
-            self.state = self.state.next_state
+            self.go_to_next_state()
 
         duration = time() - start
         print(f"Game played for {duration:.2f} seconds, at {frame / duration:.1f} FPS.")
@@ -109,7 +110,7 @@ class App(StateMachine):
         """Properly exit the app."""
 
         while self.stack:
-            self.state = (StateOperations.POP, None)
+            self.execute_state_transition(StateOperations.POP, None)
 
         settings.save()
 

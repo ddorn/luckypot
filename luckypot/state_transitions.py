@@ -13,7 +13,7 @@ class StateTransition(State):
     A transition is a visual effect that blends the image of one state into the other.
     """
 
-    def __init__(self, previous: State, next_: State, duration: int = None):
+    def __init__(self, previous: State, next_: State, duration: int | None = None):
         if duration is None:
             duration = 60
 

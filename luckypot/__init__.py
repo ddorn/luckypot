@@ -10,5 +10,6 @@ from .particles import *
 from .pygame_input import *
 from .settings import *
 from .simple_ui import *
+from .state import *
 from .state_machine import *
 from .utils import *
