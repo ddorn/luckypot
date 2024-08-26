@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Union, Literal
+from typing import TYPE_CHECKING
 
-import numpy as np
 import pygame
 import pygame.gfxdraw
 from pygame import Vector2, Rect
 
-from .constants import SMALL_TEXT_SIZE, BIG_TEXT_SIZE, Vec2Like
+from .constants import Vec2Like
 from .assets import text
 
 if TYPE_CHECKING:
